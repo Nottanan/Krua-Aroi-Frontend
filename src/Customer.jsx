@@ -16,7 +16,7 @@ function Tracker({ status }) {
   )
 }
 
-export default function Customer() {
+export default function Customer({ user, onLoginClick }) {
   const [menu, setMenu] = useState([])
   const [cart, setCart] = useState({}) // "menuId|options" -> { menu, options, qty }
   const [picks, setPicks] = useState({}) // menu id -> { group name -> choice }
@@ -24,15 +24,26 @@ export default function Customer() {
   const [msg, setMsg] = useState(null)
   const [busy, setBusy] = useState(false)
   const [activeTab, setActiveTab] = useState('menu')
+  useEffect(() => {
+  if (!user) {
+    setActiveTab('menu')
+    setOrders([])
+  }
+}, [user])
 
   const loadOrders = () => api('/my/orders').then(setOrders)
   useEffect(() => {
     const fail = (e) => setMsg({ error: true, text: e.message })
+
     api('/menu').then(setMenu, fail)
-    loadOrders().catch(fail)
-    const t = setInterval(() => loadOrders().catch(() => {}), 5000) // picks up status changes from staff
-    return () => clearInterval(t)
-  }, [])
+
+    if (user) {
+      loadOrders().catch(fail)
+
+      const t = setInterval(() => loadOrders().catch(() => {}), 5000)
+      return () => clearInterval(t)
+    }
+  }, [user])
 
   // same dish with different options = separate cart lines
   const add = (m) => {
@@ -56,8 +67,14 @@ export default function Customer() {
   const count = lines.reduce((n, [, l]) => n + l.qty, 0)
   const inCart = (id) => lines.reduce((n, [, l]) => n + (l.menu.id === id ? l.qty : 0), 0)
 
-  async function submit(e) {
+   async function submit(e) {
     e.preventDefault()
+
+    if (!user) {
+      onLoginClick()
+      return
+    }
+
     setBusy(true)
     try {
       const o = await api('/orders', {
@@ -86,13 +103,15 @@ export default function Customer() {
           🍽️ สั่งอาหาร
         </button>
 
-        <button
-          type="button"
-          className={activeTab === 'orders' ? 'customer-tab active' : 'customer-tab'}
-          onClick={() => setActiveTab('orders')}
-        >
-          📋 ออเดอร์ของฉัน
-        </button>
+        {user && (
+  <button
+    type="button"
+    className={activeTab === 'orders' ? 'customer-tab active' : 'customer-tab'}
+    onClick={() => setActiveTab('orders')}
+  >
+    📋 ออเดอร์ของฉัน
+  </button>
+)}
       </nav>
       {activeTab === 'menu' && (
       <>

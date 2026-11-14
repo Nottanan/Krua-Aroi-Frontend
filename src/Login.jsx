@@ -1,16 +1,24 @@
+
 import { useState } from 'react'
 import { api } from './api.js'
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, onClose }) {
   const [mode, setMode] = useState('login')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
   async function submit(e) {
     e.preventDefault()
     setError('')
+
+    if (mode === 'register' && password !== confirmPassword) {
+      setError('รหัสผ่านทั้งสองช่องไม่ตรงกัน')
+      return
+    }
+
     setBusy(true)
     try {
       onLogin(await api('/' + mode, { method: 'POST', body: { username, password } }))
@@ -21,7 +29,15 @@ export default function Login({ onLogin }) {
   }
 
   const tab = (m, label) => (
-    <button type="button" aria-pressed={mode === m} onClick={() => { setMode(m); setError('') }}>
+    <button
+      type="button"
+      aria-pressed={mode === m}
+      onClick={() => {
+        setMode(m)
+        setError('')
+        setConfirmPassword('')
+      }}
+    >
       {label}
     </button>
   )
@@ -37,7 +53,13 @@ export default function Login({ onLogin }) {
         </div>
       </aside>
       <main className="login">
-        <form className="panel login-card" onSubmit={submit}>
+  {onClose && (
+    <button type="button" className="login-back" onClick={onClose}>
+      ← กลับไปดูเมนูอาหาร
+    </button>
+  )}
+
+  <form className="panel login-card" onSubmit={submit}>
           <h1>{mode === 'login' ? 'ยินดีต้อนรับกลับมา' : 'สร้างบัญชีใหม่'}</h1>
           <p className="muted">
             {mode === 'login' ? 'เข้าสู่ระบบเพื่อสั่งอาหารหรือจัดการออเดอร์' : 'สมัครฟรี แล้วเริ่มสั่งอาหารได้ทันที'}
@@ -60,6 +82,20 @@ export default function Login({ onLogin }) {
               required
             />
           </label>
+
+          {mode === 'register' && (
+            <label>
+              ยืนยันรหัสผ่าน
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                required
+              />
+            </label>
+          )}
+
           <button className="primary" disabled={busy}>
             {mode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}
           </button>

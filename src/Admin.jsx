@@ -18,6 +18,10 @@ export default function Admin({ activePage, setActivePage }) {
     member_count: 0,
   })
   const [summaryError, setSummaryError] = useState('')
+    const [members, setMembers] = useState([])
+  const [memberLoading, setMemberLoading] = useState(false)
+  const [memberError, setMemberError] = useState('')
+  const [memberMessage, setMemberMessage] = useState('')
     const loadSummary = () =>
     api('/admin/summary').then(
       (data) => {
@@ -26,6 +30,65 @@ export default function Admin({ activePage, setActivePage }) {
       },
       (error) => setSummaryError(error.message),
     )
+      async function loadMembers() {
+    setMemberLoading(true)
+    setMemberError('')
+
+    try {
+      const data = await api('/admin/members')
+      setMembers(data)
+    } catch (err) {
+      setMemberError(err.message)
+    } finally {
+      setMemberLoading(false)
+    }
+  }
+
+    async function changeMemberRole(member, role) {
+    const confirmed = window.confirm(
+      `ต้องการเปลี่ยน Role ของ "${member.username}" เป็น "${role}" ใช่หรือไม่?`
+    )
+
+    if (!confirmed) return
+
+    setMemberError('')
+    setMemberMessage('')
+
+    try {
+      await api(`/admin/members/${member.id}`, {
+        method: 'PATCH',
+        body: { role },
+      })
+
+      setMemberMessage(`เปลี่ยน Role ของ "${member.username}" เรียบร้อยแล้ว`)
+      await loadMembers()
+    } catch (err) {
+      setMemberError(err.message)
+    }
+  }
+
+    async function deleteMember(member) {
+    const confirmed = window.confirm(
+      `ต้องการลบสมาชิก "${member.username}" ใช่หรือไม่?\n\nการลบนี้ไม่สามารถย้อนกลับได้`
+    )
+
+    if (!confirmed) return
+
+    setMemberError('')
+    setMemberMessage('')
+
+    try {
+      await api(`/admin/members/${member.id}`, {
+        method: 'DELETE',
+      })
+
+      setMemberMessage(`ลบสมาชิก "${member.username}" เรียบร้อยแล้ว`)
+      await loadMembers()
+    } catch (err) {
+      setMemberError(err.message)
+    }
+  }
+
       const [orders, setOrders] = useState([])
   const [orderError, setOrderError] = useState('')
   const [orderLoading, setOrderLoading] = useState(true)
@@ -101,6 +164,12 @@ export default function Admin({ activePage, setActivePage }) {
   useEffect(() => {
     loadMenu()
   }, [])
+
+    useEffect(() => {
+    if (activePage === 'members') {
+      loadMembers()
+    }
+  }, [activePage])
 
   function changeField(field, value) {
     setForm(current => ({ ...current, [field]: value }))
@@ -354,6 +423,76 @@ export default function Admin({ activePage, setActivePage }) {
 
       {error && <div className="admin-alert error">{error}</div>}
       {message && <div className="admin-alert success">{message}</div>}
+            {activePage === 'members' && (
+        <section className="panel admin-menu-panel">
+          <div className="section-head">
+            <h2>จัดการสมาชิก</h2>
+            <button
+              type="button"
+              className="admin-secondary"
+              onClick={loadMembers}
+              disabled={memberLoading}
+            >
+              รีเฟรช
+            </button>
+          </div>
+
+          {memberError && (
+            <div className="admin-alert error" role="alert">
+              {memberError}
+            </div>
+          )}
+
+          {memberMessage && (
+            <div className="admin-alert success">
+              {memberMessage}
+            </div>
+          )}
+
+          {memberLoading ? (
+            <p>กำลังโหลดสมาชิก...</p>
+          ) : members.length === 0 ? (
+            <p>ยังไม่มีสมาชิก</p>
+          ) : (
+            <div className="admin-menu-list">
+              {members.map((member) => (
+                <div className="admin-menu-item" key={member.id}>
+                  <div className="admin-menu-info">
+                    <div>
+                      <strong>{member.username}</strong>
+                      <p>รหัสสมาชิก: {member.id}</p>
+                      <span className="admin-status available">
+                        {member.role}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="admin-menu-actions">
+                    <select
+                      value={member.role}
+                      onChange={(e) =>
+                        changeMemberRole(member, e.target.value)
+                      }
+                    >
+                      <option value="customer">สมาชิก (Customer)</option>
+                      <option value="staff">พนักงาน (Staff)</option>
+                      <option value="admin">ผู้ดูแล (Admin)</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      className="admin-danger"
+                      onClick={() => deleteMember(member)}
+                    >
+                      ลบสมาชิก
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
       {activePage === 'menu' && (
         <>  
       <section className="panel admin-form-panel">
@@ -505,7 +644,17 @@ export default function Admin({ activePage, setActivePage }) {
   .map(item => (
               <div className="admin-menu-item" key={item.id}>
                 <div className="admin-menu-info">
-                  <span className="admin-menu-emoji">{item.emoji || '🍽️'}</span>
+                  {item.image ? (
+  <img
+    className="admin-menu-image"
+    src={item.image}
+    alt={item.name}
+  />
+) : (
+  <div className="admin-menu-image-placeholder">
+    ไม่มีรูปภาพ
+  </div>
+)}
                   <div>
                     <strong>{item.name}</strong>
                     <p>{baht(item.price)}</p>

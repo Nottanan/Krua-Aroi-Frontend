@@ -8,6 +8,7 @@ import Admin from './Admin.jsx'
 export default function App() {
   const [user, setUser] = useState() // undefined = checking session, null = logged out
   const [activePage, setActivePage] = useState('overview')
+    const [showLogin, setShowLogin] = useState(false)
 
   useEffect(() => {
     const out = () => setUser(null)
@@ -16,13 +17,21 @@ export default function App() {
     return () => window.removeEventListener('unauthorized', out)
   }, [])
 
-  if (user === undefined) return null
-  if (!user) return <Login onLogin={setUser} />
+    if (user === undefined) return null
 
-  const staff = user.role === 'staff'
-  const admin = user.role === 'admin'
+  if (!user && showLogin) {
+    return (
+      <Login
+        onLogin={setUser}
+        onClose={() => setShowLogin(false)}
+      />
+    )
+  }
+
+  const staff = user?.role === 'staff'
+  const admin = user?.role === 'admin'
   return (
-    <div className={`app ${user.role}`}>
+        <div className={`app ${user?.role || 'customer'}`}>
       
 <header className={`topbar ${admin ? 'topbar-admin' : ''}`}>
   <div className="wrap">
@@ -35,19 +44,27 @@ export default function App() {
         </span>
       </h1>
 
-      <div className="who">
-        <span className="avatar" aria-hidden="true">
-          {[...user.username][0].toUpperCase()}
-        </span>
-        <span className="name">
-          <small>{admin ? 'ผู้ดูแลระบบ' : staff ? 'พนักงาน' : 'ลูกค้า'}</small>
-          {user.username}
-        </span>
-        <button
-          onClick={() => api('/logout', { method: 'POST' }).finally(() => setUser(null))}
-        >
-          ออกจากระบบ
-        </button>
+            <div className="who">
+        {user ? (
+          <>
+            <span className="avatar" aria-hidden="true">
+              {[...user.username][0].toUpperCase()}
+            </span>
+            <span className="name">
+              <small>{admin ? 'ผู้ดูแลระบบ' : staff ? 'พนักงาน' : 'ลูกค้า'}</small>
+              {user.username}
+            </span>
+            <button
+              onClick={() => api('/logout', { method: 'POST' }).finally(() => setUser(null))}
+            >
+              ออกจากระบบ
+            </button>
+          </>
+        ) : (
+          <button type="button" onClick={() => setShowLogin(true)}>
+            เข้าสู่ระบบ / สมัครสมาชิก
+          </button>
+        )}
       </div>
     </div>
 
@@ -68,6 +85,14 @@ export default function App() {
         >
           🍽️ จัดการเมนูอาหาร
         </button>
+
+                <button
+          type="button"
+          className={activePage === 'members' ? 'admin-primary' : 'admin-secondary'}
+          onClick={() => setActivePage('members')}
+        >
+          👥 จัดการสมาชิก
+        </button>
       </nav>
     )}
   </div>
@@ -79,7 +104,10 @@ export default function App() {
 ) : staff ? (
   <Staff />
 ) : (
-  <Customer />
+  <Customer
+    user={user}
+    onLoginClick={() => setShowLogin(true)}
+  />
 )}</div>
     </div>
   )
